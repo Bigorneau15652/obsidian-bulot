@@ -7,6 +7,8 @@ export interface ConfirmInfo {
   language: string;
   lines: number;
   chars: number;
+  // True when the text stays on this computer or the local network
+  local: boolean;
 }
 
 // Confirmation window listing what is about to be sent
@@ -30,7 +32,7 @@ class ConfirmModal extends Modal {
     contentEl.createEl(`p`, {
       text: t(`confirmVolume`, { lines: info.lines, chars: info.chars, tokens: Math.ceil(info.chars / 4) }),
     });
-    contentEl.createEl(`p`, { cls: `bulot-setting-note`, text: t(`confirmWarning`) });
+    contentEl.createEl(`p`, { cls: `bulot-setting-note`, text: t(info.local ? `confirmWarningLocal` : `confirmWarning`) });
     new Setting(contentEl)
       .addButton((button) =>
         button

@@ -14,6 +14,8 @@ const RETRY_DELAYS = [1000, 3000, 8000];
 export interface TranslateOptions {
   provider: TranslationProvider;
   targetLanguage: string;
+  // Language code, for services that use codes instead of names
+  targetCode: string;
   signal: AbortSignal;
   // Called after each batch with the number of segments finished so far
   onProgress?: (done: number, total: number) => void;
@@ -27,6 +29,8 @@ export interface TranslateOutcome {
   failed: number;
   // Set when the whole run stopped early because of a blocking error (for example a bad key)
   fatal: ProviderError | null;
+  // Message of the last error that made a group of lines fail, to help the user understand
+  lastError: string | null;
   cancelled: boolean;
 }
 
@@ -62,6 +66,7 @@ export async function translateDocument(parsed: ParsedDocument, options: Transla
   const results = new Map<number, string>();
   const failedIds = new Set<number>();
   let fatal: ProviderError | null = null;
+  let lastError: string | null = null;
   let done = 0;
   const total = parsed.segments.length;
 
@@ -73,6 +78,7 @@ export async function translateDocument(parsed: ParsedDocument, options: Transla
       try {
         const out = await options.provider.translate(texts, {
           targetLanguage: options.targetLanguage,
+          targetCode: options.targetCode,
           signal: options.signal,
         });
         ids.forEach((id, i) => results.set(id, out[i]));
@@ -82,6 +88,7 @@ export async function translateDocument(parsed: ParsedDocument, options: Transla
       } catch (error) {
         const err = error instanceof ProviderError ? error : new ProviderError(`other`, String(error));
         // A rejected key or a cancellation makes every further call pointless
+        lastError = err.message;
         if (err.kind === `auth`) {
           fatal = err;
           return;
@@ -120,6 +127,7 @@ export async function translateDocument(parsed: ParsedDocument, options: Transla
     rebuilt,
     failed: failedIds.size + rebuilt.rejected.length,
     fatal,
+    lastError,
     cancelled: options.signal.aborted,
   };
 }

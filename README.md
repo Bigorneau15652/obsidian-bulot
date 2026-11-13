@@ -2,7 +2,7 @@
 
 Translate Obsidian notes between any pair of languages without breaking their layout.
 
-Status: early development. The Anthropic service is available. Google Cloud Translation and local models (Ollama, LM Studio) are planned.
+Status: early development. Three services are available: Anthropic (Claude), Google Cloud Translation and any local server compatible with the OpenAI protocol (Ollama, LM Studio...).
 
 ## Requirements
 
@@ -24,15 +24,23 @@ Three ways to start a translation:
 
 By default the note is replaced. The change can be undone with Ctrl+Z, and a backup copy of the original is kept in the plugin folder (the number of copies is a setting). Another setting creates a translated copy next to the original instead.
 
-## Setting up Anthropic
+## Setting up a service
 
-1. Create an API key in your Anthropic account.
-2. Open Settings, then Bulot, and in "API key" create or select a secret holding the key.
-3. Choose the model (Claude Haiku 5.5 by default) and use "Test the connection".
+In every case, keys are created or selected in the Bulot settings with the secret selector of Obsidian. Only the name of the secret is saved in the plugin data. Each service has a "Test the connection" button.
+
+Anthropic: create an API key in the Anthropic console (the account needs prepaid credit), then choose the model (Claude Haiku 5.5 by default).
+
+Google Cloud Translation: in a Google Cloud project with billing enabled, activate the Cloud Translation API and create an API key. The key is sent in a request header, never in the address.
+
+Local server: install Ollama or LM Studio, load an instruction-tuned model, then enter the server address (Ollama: `http://localhost:11434/v1`, LM Studio: `http://localhost:1234/v1`) and the exact model name. Plain http is accepted only for this computer and private network addresses; any other address must use https. Small models may fail to follow the structured answer format: Bulot then retries with smaller groups and keeps the original text of the lines that still fail. Models of about 7 billion parameters or more give better results. On a phone, enter the address of your computer on the local network.
+
+## Local only mode
+
+When this setting is on, Bulot refuses any service that would send text over the internet: only a local server with a private network address can be used. Cloud services are not even offered in the "choose service and language" command.
 
 ## Network use and privacy
 
-Bulot sends text to the selected translation service only when you start a translation, and only the sentences to translate (not the layout elements kept aside). The service requires your own API key and may charge you according to its pricing. No telemetry is collected and nothing is sent at startup. A confirmation window shows the volume before sending when it exceeds a threshold you set (0 asks every time).
+Bulot sends text to the selected translation service only when you start a translation, and only the sentences to translate (not the layout elements kept aside). Anthropic and Google Cloud Translation are online services that require your own API key and may charge you according to their pricing. A local server receives the text on your own computer or network. No telemetry is collected and nothing is sent at startup. A confirmation window shows the volume before sending when it exceeds a threshold you set (0 asks every time).
 
 Text of the note is treated as data: the instructions given to the model state that the content is never an instruction, and the answer is only accepted when it keeps every protected marker.
 

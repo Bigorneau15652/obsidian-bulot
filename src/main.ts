@@ -6,7 +6,7 @@ import { makeTranslator, resolveLocale, Translator } from "./i18n";
 import { LANGUAGES, Language, findLanguage } from "./languages";
 import { findStructureMismatch, parseDocument } from "./markdown";
 import { confirmTranslation, pickOne } from "./modals";
-import { PROVIDER_IDS, PROVIDER_LABELS, createProvider, describeProvider, isConfigured } from "./providers";
+import { PROVIDER_IDS, PROVIDER_LABELS, createProvider, describeProvider, isConfigured, isLocalProvider } from "./providers";
 import { ProviderError, ProviderId } from "./providers/types";
 import { BulotSettings, BulotSettingTab, DEFAULT_SETTINGS, sanitizeSettings } from "./settings";
 import { countCharacters, translateDocument } from "./translator";
@@ -84,15 +84,17 @@ export default class BulotPlugin extends Plugin {
   private readSecret = (name: string): string | null => this.app.secretStorage.getSecret(name);
 
   // Check the configured key with one short request (used by the settings tab)
-  async testConnection(): Promise<void> {
-    const provider = createProvider(this.settings.provider, this.settings, this.readSecret);
-    await provider.translate([`Hello`], { targetLanguage: `French`, signal: new AbortController().signal });
+  async testConnection(id: ProviderId): Promise<void> {
+    const provider = createProvider(id, this.settings, this.readSecret);
+    await provider.translate([`Hello`], { targetLanguage: `French`, targetCode: `fr`, signal: new AbortController().signal });
   }
 
   // "Choose service and language" command: two pickers, then the translation
   private async runWithChoices(scope: RunRequest[`scope`]): Promise<void> {
     const t = this.t;
-    const provider = await pickOne(this.app, t(`pickService`), PROVIDER_IDS, (id) =>
+    // In local only mode, services that send text over the internet are not even offered
+    const choices = PROVIDER_IDS.filter((id) => !this.settings.localOnly || isLocalProvider(id, this.settings));
+    const provider = await pickOne(this.app, t(`pickService`), choices, (id) =>
       isConfigured(id, this.settings, this.readSecret) ? PROVIDER_LABELS[id] : `${PROVIDER_LABELS[id]} ${t(`notConfiguredSuffix`)}`
     );
     if (provider === null) return;
@@ -118,6 +120,10 @@ export default class BulotPlugin extends Plugin {
 
     const providerId = request.provider ?? this.settings.provider;
     const language = request.language ?? findLanguage(this.settings.targetLanguage);
+    if (this.settings.localOnly && !isLocalProvider(providerId, this.settings)) {
+      new Notice(t(`localOnlyBlocked`, { service: PROVIDER_LABELS[providerId] }));
+      return;
+    }
     if (!isConfigured(providerId, this.settings, this.readSecret)) {
       new Notice(t(`notConfigured`, { service: PROVIDER_LABELS[providerId] }));
       return;
@@ -143,6 +149,7 @@ export default class BulotPlugin extends Plugin {
         language: `${language.native} (${language.english})`,
         lines: parsed.segments.length,
         chars,
+        local: isLocalProvider(providerId, this.settings),
       });
       if (!accepted) return;
     }
@@ -155,12 +162,13 @@ export default class BulotPlugin extends Plugin {
       const outcome = await translateDocument(parsed, {
         provider,
         targetLanguage: language.english,
+        targetCode: language.code,
         signal: controller.signal,
         onProgress: (done, total) => progress.setMessage(t(`progress`, { done, total })),
       });
 
       if (outcome.fatal !== null) {
-        new Notice(t(`authFailed`, { service: PROVIDER_LABELS[providerId] }));
+        new Notice(t(`authFailed`, { service: PROVIDER_LABELS[providerId], reason: outcome.fatal.message }), 10000);
         return;
       }
       if (outcome.cancelled) {
@@ -169,7 +177,7 @@ export default class BulotPlugin extends Plugin {
       }
       const translated = parsed.segments.length - outcome.failed;
       if (translated === 0) {
-        new Notice(t(`doneFailed`, { failed: outcome.failed }));
+        new Notice(t(`allFailed`, { reason: outcome.lastError ?? `-` }), 10000);
         return;
       }
 

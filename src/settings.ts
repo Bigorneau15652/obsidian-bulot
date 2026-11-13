@@ -5,6 +5,7 @@ import { UiLanguageSetting } from "./i18n";
 import { LANGUAGES } from "./languages";
 import { ANTHROPIC_MODELS, DEFAULT_ANTHROPIC_MODEL } from "./providers/anthropic";
 import { PROVIDER_IDS, PROVIDER_LABELS } from "./providers";
+import { DEFAULT_LOCAL_URL } from "./providers/local";
 import { ProviderError, ProviderId } from "./providers/types";
 
 export type OutputMode = `replace` | `copy`;
@@ -22,6 +23,12 @@ export interface BulotSettings {
   anthropicModel: string;
   // Name of the secret in Obsidian secret storage (the key itself is never saved in data.json)
   anthropicSecretName: string;
+  googleSecretName: string;
+  localBaseUrl: string;
+  localModel: string;
+  localSecretName: string;
+  // When on, only services that keep the text on this computer or local network can be used
+  localOnly: boolean;
 }
 
 export const DEFAULT_SETTINGS: BulotSettings = {
@@ -34,6 +41,11 @@ export const DEFAULT_SETTINGS: BulotSettings = {
   frontmatterKeys: ``,
   anthropicModel: DEFAULT_ANTHROPIC_MODEL,
   anthropicSecretName: ``,
+  googleSecretName: ``,
+  localBaseUrl: DEFAULT_LOCAL_URL,
+  localModel: ``,
+  localSecretName: ``,
+  localOnly: false,
 };
 
 // Merge saved data over the defaults and drop anything invalid
@@ -48,7 +60,11 @@ export function sanitizeSettings(saved: unknown): BulotSettings {
   merged.backupCount = Number.isFinite(merged.backupCount) ? Math.max(1, Math.floor(merged.backupCount)) : 10;
   merged.confirmThreshold = Number.isFinite(merged.confirmThreshold) ? Math.max(0, Math.floor(merged.confirmThreshold)) : 20000;
   merged.frontmatterKeys = typeof merged.frontmatterKeys === `string` ? merged.frontmatterKeys : ``;
-  merged.anthropicSecretName = typeof merged.anthropicSecretName === `string` ? merged.anthropicSecretName : ``;
+  for (const key of [`anthropicSecretName`, `googleSecretName`, `localSecretName`, `localModel`] as const) {
+    if (typeof merged[key] !== `string`) merged[key] = ``;
+  }
+  if (typeof merged.localBaseUrl !== `string` || merged.localBaseUrl.trim() === ``) merged.localBaseUrl = DEFAULT_LOCAL_URL;
+  merged.localOnly = merged.localOnly === true;
   return merged;
 }
 
@@ -98,6 +114,16 @@ export class BulotSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         });
       });
+
+    new Setting(containerEl)
+      .setName(t(`localOnly`))
+      .setDesc(t(`localOnlyDesc`))
+      .addToggle((toggle) =>
+        toggle.setValue(settings.localOnly).onChange(async (value) => {
+          settings.localOnly = value;
+          await this.plugin.saveSettings();
+        })
+      );
 
     new Setting(containerEl)
       .setName(t(`targetLanguage`))
@@ -162,16 +188,7 @@ export class BulotSettingTab extends PluginSettingTab {
 
     new Setting(containerEl).setName(t(`sectionAnthropic`)).setHeading();
 
-    new Setting(containerEl)
-      .setName(t(`anthropicKey`))
-      .setDesc(t(`anthropicKeyDesc`))
-      .addComponent((el) =>
-        new SecretComponent(this.app, el).setValue(settings.anthropicSecretName).onChange(async (name) => {
-          // Only the name of the secret is saved here, never the key
-          settings.anthropicSecretName = name ?? ``;
-          await this.plugin.saveSettings();
-        })
-      );
+    this.addSecretSetting(containerEl, t(`anthropicKey`), t(`anthropicKeyDesc`), settings.anthropicSecretName, (name) => (settings.anthropicSecretName = name));
 
     new Setting(containerEl)
       .setName(t(`anthropicModel`))
@@ -183,15 +200,60 @@ export class BulotSettingTab extends PluginSettingTab {
         });
       });
 
+    this.addTestButton(containerEl, `anthropic`);
+
+    new Setting(containerEl).setName(t(`sectionGoogle`)).setHeading();
+    this.addSecretSetting(containerEl, t(`googleKey`), t(`googleKeyDesc`), settings.googleSecretName, (name) => (settings.googleSecretName = name));
+    this.addTestButton(containerEl, `google`);
+
+    new Setting(containerEl).setName(t(`sectionLocal`)).setHeading();
     new Setting(containerEl)
+      .setName(t(`localUrl`))
+      .setDesc(t(`localUrlDesc`))
+      .addText((text) =>
+        text.setValue(settings.localBaseUrl).onChange(async (value) => {
+          settings.localBaseUrl = value.trim();
+          await this.plugin.saveSettings();
+        })
+      );
+    new Setting(containerEl)
+      .setName(t(`localModel`))
+      .setDesc(t(`localModelDesc`))
+      .addText((text) =>
+        text.setValue(settings.localModel).onChange(async (value) => {
+          settings.localModel = value.trim();
+          await this.plugin.saveSettings();
+        })
+      );
+    this.addSecretSetting(containerEl, t(`localKey`), t(`localKeyDesc`), settings.localSecretName, (name) => (settings.localSecretName = name));
+    this.addTestButton(containerEl, `local`);
+  }
+
+  // A line that links the setting to a secret of the Obsidian secret storage (only the name is saved here)
+  private addSecretSetting(container: HTMLElement, name: string, desc: string, current: string, assign: (secretName: string) => void): void {
+    new Setting(container)
+      .setName(name)
+      .setDesc(desc)
+      .addComponent((el) =>
+        new SecretComponent(this.app, el).setValue(current).onChange(async (secretName) => {
+          assign(secretName ?? ``);
+          await this.plugin.saveSettings();
+        })
+      );
+  }
+
+  // A button that checks the settings of one service with a one word request
+  private addTestButton(container: HTMLElement, id: ProviderId): void {
+    const t = this.plugin.t;
+    new Setting(container)
       .setName(t(`testConnection`))
       .setDesc(t(`testConnectionDesc`))
       .addButton((button) =>
         button.setButtonText(t(`testButton`)).onClick(async () => {
           button.setDisabled(true);
           try {
-            await this.plugin.testConnection();
-            new Notice(t(`testOk`, { service: PROVIDER_LABELS.anthropic }));
+            await this.plugin.testConnection(id);
+            new Notice(t(`testOk`, { service: PROVIDER_LABELS[id] }));
           } catch (error) {
             const reason = error instanceof ProviderError ? error.message : String(error);
             new Notice(t(`testFail`, { reason }));
