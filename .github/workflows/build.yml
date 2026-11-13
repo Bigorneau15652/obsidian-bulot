@@ -59,7 +59,14 @@ jobs:
             echo "Tag $GITHUB_REF_NAME does not match manifest version $VERSION"
             exit 1
           fi
-      - name: Create release
+      # The release may already exist when it was created from the GitHub web
+      # page: in that case the files are attached to it, otherwise it is created
+      - name: Create or update release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" main.js manifest.json styles.css --title "$GITHUB_REF_NAME" --generate-notes
+        run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" main.js manifest.json styles.css --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" main.js manifest.json styles.css --title "$GITHUB_REF_NAME" --generate-notes
+          fi
