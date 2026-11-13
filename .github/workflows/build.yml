@@ -1,0 +1,65 @@
+# Builds the plugin on every push and pull request, and publishes a GitHub
+# release (main.js, manifest.json, styles.css) when a version tag is pushed.
+name: Build and release
+
+on:
+  push:
+    branches: [main]
+    tags: ["*"]
+  pull_request:
+  workflow_dispatch:
+
+# Least privilege: read-only by default, write access only for the release job
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # Install exactly the versions recorded in package-lock.json
+      - run: npm ci
+      - run: npm run build
+      # Fail on known high severity vulnerabilities in dependencies
+      - run: npm audit --audit-level=high
+      # Keep the three release files as a downloadable archive for every run
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bulot-plugin
+          path: |
+            main.js
+            manifest.json
+            styles.css
+
+  release:
+    # Only for version tags such as 0.1.1
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      # The tag must match the version declared in manifest.json
+      - name: Check tag matches manifest version
+        run: |
+          VERSION=$(node -p "require('./manifest.json').version")
+          if [ "$VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match manifest version $VERSION"
+            exit 1
+          fi
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" main.js manifest.json styles.css --title "$GITHUB_REF_NAME" --generate-notes
