@@ -24,6 +24,8 @@ jobs:
           cache: npm
       # Install exactly the versions recorded in package-lock.json
       - run: npm ci
+      # Automated tests of the Markdown protection layer
+      - run: npm test
       - run: npm run build
       # Fail on known high severity vulnerabilities in dependencies
       - run: npm audit --audit-level=high
