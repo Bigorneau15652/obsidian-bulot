@@ -1,7 +1,8 @@
 // Tests for the translation pipeline and the Anthropic provider, using fake services.
 import { beforeEach, describe, expect, it } from "vitest";
 import { parseDocument } from "../src/markdown";
-import { AnthropicProvider, parseJsonArray } from "../src/providers/anthropic";
+import { AnthropicProvider } from "../src/providers/anthropic";
+import { parseJsonArray } from "../src/providers/shared";
 import { ProviderError, TranslateContext, TranslationProvider } from "../src/providers/types";
 import { MAX_BATCH_CHARS, MAX_BATCH_SEGMENTS, countCharacters, makeBatches, translateDocument } from "../src/translator";
 import { stubState } from "./obsidian-stub";
@@ -25,7 +26,7 @@ function fakeProvider(behaviour: (texts: readonly string[], call: number) => str
 const shout = (texts: readonly string[]): string[] => texts.map((t) => t.toUpperCase());
 const noWait = async (): Promise<void> => undefined;
 const run = (source: string, provider: TranslationProvider, signal = new AbortController().signal) =>
-  translateDocument(parseDocument(source), { provider, targetLanguage: `French`, signal, sleep: noWait });
+  translateDocument(parseDocument(source), { provider, targetLanguage: `French`, targetCode: `fr`, signal, sleep: noWait });
 
 describe(`batching`, () => {
   it(`keeps every segment in exactly one batch within the limits`, () => {
@@ -120,7 +121,7 @@ describe(`parseJsonArray`, () => {
 });
 
 describe(`AnthropicProvider`, () => {
-  const context: TranslateContext = { targetLanguage: `French`, signal: new AbortController().signal };
+  const context: TranslateContext = { targetLanguage: `French`, targetCode: `fr`, signal: new AbortController().signal };
   const answer = (text: string) => ({ status: 200, json: { content: [{ type: `text`, text }] } });
 
   beforeEach(() => {

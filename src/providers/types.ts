@@ -2,12 +2,14 @@
 // one class that implements TranslationProvider and registering it in index.ts.
 
 // Identifiers of the available services
-export type ProviderId = `anthropic`;
+export type ProviderId = `anthropic` | `google` | `local`;
 
 // Information given to a provider for each batch
 export interface TranslateContext {
   // English name of the target language, for example `French`
   targetLanguage: string;
+  // Language code of the target language, for example `fr`
+  targetCode: string;
   // Cancellation signal of the whole translation
   signal: AbortSignal;
 }

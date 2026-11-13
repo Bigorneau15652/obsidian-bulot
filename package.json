@@ -1,6 +1,6 @@
 {
   "name": "obsidian-bulot",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Translate Obsidian notes without breaking their layout",
   "main": "main.js",
   "private": true,
