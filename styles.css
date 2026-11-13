@@ -1,0 +1,6 @@
+/* Bulot plugin styles. Only use Obsidian CSS variables so themes keep working. */
+.bulot-setting-note {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  margin-bottom: var(--size-4-2);
+}

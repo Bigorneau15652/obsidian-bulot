@@ -1,0 +1,9 @@
+{
+  "id": "bulot",
+  "name": "Bulot",
+  "version": "0.1.0",
+  "minAppVersion": "1.8.0",
+  "description": "Translate notes between any pair of languages without breaking their layout.",
+  "author": "Bigorneau15652",
+  "isDesktopOnly": false
+}

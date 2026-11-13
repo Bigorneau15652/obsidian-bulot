@@ -147,3 +147,8 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Obsidian plugin build output (attached to GitHub releases, not committed)
+main.js
+*.map
+data.json
