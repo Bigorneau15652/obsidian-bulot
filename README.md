@@ -16,6 +16,10 @@ Status: early development (step 1: project skeleton, icon and bilingual settings
 
 Bulot sends text to a translation service only when you start a translation and after you configured a provider with your own API key. No telemetry is collected. A "local only" mode will restrict requests to servers on your own network.
 
+## Installation without building anything
+
+Each tagged version is published in the GitHub releases of this repository with the three files Obsidian needs (`main.js`, `manifest.json`, `styles.css`). Download them into `<your vault>/.obsidian/plugins/bulot/`, or install the plugin with the BRAT community plugin by giving it the address of this repository.
+
 ## Development
 
 ```bash
