@@ -1,0 +1,20 @@
+{
+  "name": "obsidian-bulot",
+  "version": "0.1.0",
+  "description": "Translate Obsidian notes without breaking their layout",
+  "main": "main.js",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
+    "typecheck": "tsc --noEmit --skipLibCheck"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "esbuild": "^0.28.2",
+    "obsidian": "^1.14.4",
+    "tslib": "^2.8.1",
+    "typescript": "^5.6.3"
+  }
+}
